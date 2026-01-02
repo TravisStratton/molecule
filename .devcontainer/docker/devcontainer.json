@@ -2,6 +2,23 @@
   "name": "ansible-dev-container-docker",
   "image": "ghcr.io/ansible/community-ansible-dev-tools:latest",
   "containerUser": "root",
+  "remoteUser": "stra0400",
+
+  
+  // Create the user at build time with aligned UID/GID
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "stra0400",
+      "userUid": "1000",
+      "userGid": "1000",
+      "installZsh": false,
+      "upgradePackages": false
+    }
+  },
+
+
+  "updateRemoteUserUID": true,
+
   "runArgs": [
     "--security-opt",
     "seccomp=unconfined",
@@ -15,7 +32,11 @@
     "apparmor=unconfined",
     "--hostname=ansible-dev-container"
   ],
-  "updateRemoteUserUID": true,
+  
+  // Create stra0400 in the container and align UID/GID = 1000
+  // "onCreateCommand": "groupadd -g 1000 stra0400 || true && useradd -m -u 1000 -g 1000 stra0400 || true",
+
+
   "customizations": {
     "vscode": {
       "extensions": ["redhat.ansible", "redhat.vscode-redhat-account"]
