@@ -5,7 +5,7 @@ dependency:
   options:
     ignore-certs: false
     ignore-errors: false
-    # role-file: requirements.yml
+    role-file: requirements.yml
     requirements-file: requirements.yml
 
 
@@ -26,7 +26,7 @@ ansible:
       ansible_playbook:
         - --diff
         - --force-handlers
-        - --inventory=inventory.yml
+        - --inventory=/path/to/inventory.yml
       ansible_navigator:
         - --mode stdout
         - --pull-policy missing
@@ -42,7 +42,7 @@ ansible:
     verify: verify.yml
 
 scenario:
-  name: linux
+  name: network
   test_sequence:
     - dependency
     - cleanup

@@ -1,35 +1,66 @@
 ---
-- name: Create
+- name: Create container instances
   hosts: localhost
-  connection: local
   gather_facts: false
-  # no_log: "{{ molecule_no_log }}"
+  vars:
+    target_hosts: "{{ groups['all'] | default([]) | list }}"
+
   tasks:
-    # TODO: Developer must implement and populate 'server' variable
+    # - name: Create container network
+    #   containers.podman.podman_network:
+    #     name: molecule-linux-test
+    #     state: present
+    - name: Print target hosts
+      ansible.builtin.debug:
+        msg: "Target host: {{ target_hosts }}"
 
-    - name: Create instance config
-      when: server.changed | default(false) | bool  # noqa no-handler
-      block:
-        - name: Populate instance config dict  # noqa jinja
-          ansible.builtin.set_fact:
-            instance_conf_dict: {}
-            # instance': "{{ }}",
-            # address': "{{ }}",
-            # user': "{{ }}",
-            # port': "{{ }}",
-            # 'identity_file': "{{ }}", }
-          with_items: "{{ server.results }}"
-          register: instance_config_dict
+    - name: Create test containers
+      containers.podman.podman_container:
+        name: "{{ hostvars[item].ansible_host }}"
+        image: "{{ hostvars[item].container_image }}"
+        command: "{{ hostvars[item].container_command }}"
+        privileged: "{{ hostvars[item].container_privileged }}"
+        state: started
+        # network:
+          # - molecule-linux-test
+        network: host
+        systemd: false
+        # init:
+      loop: "{{ target_hosts }}"
+      register: podman_results
 
-        - name: Convert instance config dict to a list
-          ansible.builtin.set_fact:
-            instance_conf: "{{ instance_config_dict.results | map(attribute='ansible_facts.instance_conf_dict') | list }}"
+    - name: Wait until container is running
+      containers.podman.podman_container_info:
+        name: "{{ hostvars[item].ansible_host }}"
+      register: container_info
+      # retries: 10
+      # delay: 2
+      # until: container_info.containers.State.Running[0].State.Running | default(false)
+      loop: "{{ target_hosts }}"
 
-        - name: Dump instance config
-          ansible.builtin.copy:
-            content: |
-              # Molecule managed
+    # - name: Print container name and running state
+    #   ansible.builtin.debug:
+    #     msg: "Container: {{ item.invocation.module_args.name }}, Running: {{ item.containers[0].State.Running | default('N/A') }}"
+    #   loop: "{{ container_info.results }}"
 
-              {{ instance_conf | to_json | from_json | to_yaml }}
-            dest: "{{ molecule_instance_config }}"
-            mode: "0600"
+    - name: Assert all containers are running
+      ansible.builtin.assert:
+        that:
+          - (container_info.results | map(attribute='containers') | map('first') | map(attribute='State') | map(attribute='Running') | list | min) | bool
+        fail_msg: "One or more containers are not running!"
+        success_msg: "All containers are running."
+
+    # - name: Wait until each container is running
+    #   containers.podman.podman_container_info:
+    #     name: "{{ item.name }}"
+    #   register: container_info
+    #   retries: 10
+    #   delay: 2
+    #   until: container_info.container.State.Running | default(false)
+    #   loop: "{{ molecule_yml.platforms }}"
+
+
+    # - name: Assert all containers are running
+    #   ansible.builtin.assert:
+    #     that:
+    #       - podman_results.results | map(attribute='container.State.Running') | list | all
